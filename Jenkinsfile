@@ -54,14 +54,10 @@ pipeline {
         }
 
         // Étape 3 : Construction du projet
-       stage('Construction projet') {
+    stage('Construction projet') {
     steps {
-        script {
-            docker.image('maven:3.9.9-openjdk-11').inside {
-                // Exécution de la commande Maven dans le conteneur
-                sh 'mvn clean package -DskipTests'
-            }
-        }
+        // Utilisation de Maven installé via Jenkins
+        sh 'mvn clean package -DskipTests'
     }
 }
 
