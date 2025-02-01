@@ -1,6 +1,13 @@
 pipeline {
     agent any
 
+    environment {
+        SONARQUBE = 'SonarQube'
+        NEXUS_REPO = 'nexus-repository'
+        KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials' // Nom de votre credential Kubernetes dans Jenkins
+        GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Récupérer le token de Jenkins
+    }
+
     stages {
         stage('Récupération du projet') {
             steps {
@@ -10,8 +17,8 @@ pipeline {
                         echo "Le répertoire 'spring-boot' existe déjà. Suppression en cours..."
                         sh 'rm -rf spring-boot'
                     }
-                    // Clonage du projet depuis GitHub
-                    git 'https://github.com/nouradine04/spring-boot.git'
+                    // Clonage du projet depuis GitHub avec les credentials
+                    git url: 'https://github.com/nouradine04/spring-boot.git', credentialsId: 'GITHUB_CREDENTIALS'
                 }
             }
         }
@@ -32,7 +39,7 @@ pipeline {
             steps {
                 script {
                     // Lancer l'analyse SonarQube avec Maven
-                    sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}'
+                    sh "mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}"
                 }
             }
         }
@@ -47,7 +54,7 @@ pipeline {
 
         stage('Publication sur Nexus') {
             steps {
-                nexusPublisher nexusInstanceId: 'nexus-repository', nexusRepositoryId: 'maven-releases', file: 'target/*.jar'
+                nexusPublisher nexusInstanceId: NEXUS_REPO, nexusRepositoryId: 'maven-releases', file: 'target/*.jar'
             }
         }
 
