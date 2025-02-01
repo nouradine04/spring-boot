@@ -10,22 +10,30 @@ pipeline {
         PATH = "${MAVEN_HOME}/bin:${PATH}" 
     }
 
-    stage('Recuperation projet') {
-    steps {
-        script {
-            // Supprimer le répertoire existant s'il existe
-            if (fileExists('spring-boot')) {
-                deleteDir() // Cela supprime tout le contenu du répertoire de travail actuel
+  stages {
+        stage('Recuperation projet') {
+            steps {
+                script {
+                    // Vérification de l'existence du dossier avant clonage
+                    if (!fileExists('spring-boot')) {
+                        git 'https://github.com/nouradine04/spring-boot.git'
+                    } else {
+                        echo "Le projet existe déjà."
+                    }
+                }
             }
         }
-        // Cloner le projet depuis GitHub
-        git 'https://github.com/nouradine04/spring-boot.git'
-    }
-}
+
         stage('contruction projet') {
             steps {
                 // Utilisation de Maven installé et configuré dans Jenkins
                 sh "'${MAVEN_HOME}/bin/mvn' clean package -DskipTests"
+            }
+        }
+      
+      stage('Test') {
+            steps {
+                sh "'${MAVEN_HOME}/bin/mvn' test"
             }
         }
 
@@ -38,11 +46,6 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                sh "'${MAVEN_HOME}/bin/mvn' test"
-            }
-        }
 
         stage('recuperation Nexus') {
             steps {
