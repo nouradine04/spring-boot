@@ -10,15 +10,16 @@ pipeline {
     }
 
     stages {
-        stage('recuperation projet') {
+        stage('Recuperation projet') {
             steps {
-                    sh "git clone https://${GITHUB_CREDENTIALS}@github.com/nouradine04/spring-boot.git"
-            }
-        }
-
-        stage('contruction projet') {
-            steps {
-                sh './mvnw clean package -DskipTests'
+                script {
+                    // Vérification de l'existence du dossier avant clonage
+                    if (!fileExists('spring-boot')) {
+                        git 'https://github.com/nouradine04/spring-boot.git'
+                    } else {
+                        echo "Le projet existe déjà."
+                    }
+                }
             }
         }
 
