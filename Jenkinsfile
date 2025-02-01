@@ -5,12 +5,14 @@ pipeline {
         SONARQUBE = 'SonarQube'
         NEXUS_REPO = 'nexus-repository'
         KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials' // Nom de ton credential Kubernetes dans Jenkins
+        GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Récupérer le token de Jenkins
+
     }
 
     stages {
         stage('recuperation projet') {
             steps {
-                    git url: 'git@github.com:nouradine04/springboot-project.git', branch: 'main'
+                    sh "git clone https://${GITHUB_CREDENTIALS}@github.com/nouradine04/springboot-project.git"
             }
         }
 
