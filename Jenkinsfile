@@ -12,7 +12,7 @@ pipeline {
     stages {
         stage('recuperation projet') {
             steps {
-                    sh "git clone https://${GITHUB_CREDENTIALS}@github.com/nouradine04/springboot-project.git"
+                    sh "git clone https://${GITHUB_CREDENTIALS}@github.com/nouradine04/spring-boot.git"
             }
         }
 
