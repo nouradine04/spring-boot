@@ -1,39 +1,32 @@
 pipeline {
-    agent any
-
-    environment {
-        SONARQUBE = 'sonarqube'
-        NEXUS_REPO = 'nexus-repository'
-        KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials' // Nom de ton credential Kubernetes dans Jenkins
-        GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Récupérer le token de Jenkins
-        MAVEN_HOME = '/Users/mac/Desktop/apache-maven-3.9.9'  // Le chemin vers Maven
-        PATH = "${MAVEN_HOME}/bin:${PATH}" 
+    agent {
+        docker {
+            image 'maven:3.9.9-jdk-11' // Utilisation de l'image Docker officielle de Maven
+            args '-v /root/.m2:/root/.m2' // Montée du dossier .m2 pour le cache des dépendances
+        }
     }
 
-  stages {
-        stage('Recuperation projet') {
+    stages {
+        stage('Récupération du projet') {
             steps {
                 script {
-                    // Vérification de l'existence du dossier avant clonage
-                    if (!fileExists('spring-boot')) {
-                        git 'https://github.com/nouradine04/spring-boot.git'
-                    } else {
-                        echo "Le projet existe déjà."
-                    }
+                    // Clonage du projet depuis GitHub
+                    git 'https://github.com/nouradine04/spring-boot.git'
                 }
             }
         }
 
-        stage('contruction projet') {
+        stage('Construction du projet') {
             steps {
-                // Utilisation de Maven installé et configuré dans Jenkins
-                sh "'${MAVEN_HOME}/bin/mvn' clean package -DskipTests"
+                // Utilisation de Maven pour construire le projet
+                sh 'mvn clean package -DskipTests'
             }
         }
-      
-      stage('Test') {
+
+        stage('Exécution des tests') {
             steps {
-                sh "'${MAVEN_HOME}/bin/mvn' test"
+                // Lancer les tests avec Maven
+                sh 'mvn test'
             }
         }
 
@@ -41,53 +34,55 @@ pipeline {
             steps {
                 script {
                     // Lancer l'analyse SonarQube avec Maven
-                    sh "'${MAVEN_HOME}/bin/mvn' sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}"
+                    sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}'
                 }
             }
         }
 
-
-        stage('recuperation Nexus') {
+        stage('Gestion de l\'Infrastructure avec Terraform') {
             steps {
                 script {
+                    // Initialisation, planification et application de Terraform
+                    sh 'terraform init'
+                    sh 'terraform plan -out=tfplan'
+                    sh 'terraform apply -auto-approve tfplan'
+                }
+            }
+        }
+
+        stage('Publication sur Nexus') {
+            steps {
+                script {
+                    // Publication de l'artifact sur Nexus
                     nexusPublisher nexusInstanceId: 'nexus-repository', nexusRepositoryId: 'maven-releases', file: 'target/*.jar'
                 }
             }
         }
 
-        stage('Terraform') {
+        stage('Déploiement sur Kubernetes') {
             steps {
                 script {
-                    sh 'terraform init'
-                    sh 'terraform plan'
-                    sh 'terraform apply -auto-approve'
-                }
-            }
-        }
-
-        stage('Deploiement Kubernetes') {
-            steps {
-                script {
-                    // Utilisation de kubectl pour déployer sur Kubernetes
-                    sh 'kubectl apply -f k8s/deployment.yaml'
-                    sh 'kubectl apply -f k8s/service.yaml'
+                    withCredentials([kubeconfig(credentialsId: KUBERNETES_CREDENTIALS)]) {
+                        sh 'kubectl apply -f k8s/deployment.yaml'
+                        sh 'kubectl apply -f k8s/service.yaml'
+                    }
                 }
             }
         }
 
         stage('Monitoring avec Grafana') {
             steps {
-                echo 'Monitoring app in Grafana'
+                echo 'Monitoring de l\'application dans Grafana.'
             }
         }
     }
 
     post {
         success {
-            echo 'Build and deploy successful!'
+            echo 'Build et déploiement réussis !'
         }
         failure {
-            echo 'Build failed. Check logs.'
+            echo 'Échec du build. Consultez les logs pour plus de détails.'
         }
     }
 }
