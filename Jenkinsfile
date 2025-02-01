@@ -1,15 +1,11 @@
 pipeline {
     agent {
         // Utilise un agent docker avec une image Maven (avec OpenJDK) pour les étapes Maven
-        docker {
-            image 'maven:3.9.9-openjdk-11'
-            // Tu peux ajouter d'autres options si nécessaire, par ex. args '--privileged'
-        }
+       
     }
 
     environment {
         // Maven est déjà installé dans l'image Docker utilisée ci-dessus, donc pas besoin de MAVEN_HOME
-        MAVEN_OPTS = '-Xmx1024m -XX:MaxPermSize=512m'
         GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')
         SONARQUBE_TOKEN = credentials('sonarqube')
         NEXUS_REPO = 'nexus-repository'
