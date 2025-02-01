@@ -1,9 +1,10 @@
 pipeline {
     agent any
+    
 
     environment {
         // Configuration de Maven
-        MAVEN_HOME = '/Users/mac/Desktop/apache-maven-3.9.9'  // Chemin vers Maven
+        MAVEN_HOME = '/opt/maven'  // Chemin dans le conteneur
         PATH = "${MAVEN_HOME}/bin:${PATH}"  // Ajouter Maven au PATH
         MAVEN_OPTS = '-Xmx1024m -XX:MaxPermSize=512m'  // Allouer plus de mémoire à Maven
 
