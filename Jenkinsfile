@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('recuperation projet') {
             steps {
-                git branch: 'main', url: 'https://github.com/nouradine04/springboot-project.git'
+                    git url: 'git@github.com:nouradine04/springboot-project.git', branch: 'main'
             }
         }
 
@@ -20,13 +20,11 @@ pipeline {
             }
         }
 
-        stage(' Analyse avec SonarQube ') {
-                    steps {
-                        script {
-                            // Lancer l'analyse SonarQube avec Maven
-                            sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=squ_0108ac01d1af24a0bb52762304c294de1811bbce'
-                        }
-
+        stage('Analyse avec SonarQube') {
+            steps {
+                script {
+                    // Lancer l'analyse SonarQube avec Maven
+                    sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=squ_0108ac01d1af24a0bb52762304c294de1811bbce'
                 }
             }
         }
@@ -37,7 +35,7 @@ pipeline {
             }
         }
 
-        stage('recuperation  Nexus') {
+        stage('recuperation Nexus') {
             steps {
                 script {
                     nexusPublisher nexusInstanceId: 'nexus-repository', nexusRepositoryId: 'maven-releases', file: 'target/*.jar'
@@ -45,7 +43,7 @@ pipeline {
             }
         }
 
-        stage('Terraform ') {
+        stage('Terraform') {
             steps {
                 script {
                     sh 'terraform init'
@@ -55,7 +53,7 @@ pipeline {
             }
         }
 
-        stage('Deploiement  Kubernetes') {
+        stage('Deploiement Kubernetes') {
             steps {
                 script {
                     // Utilisation de kubectl pour déployer sur Kubernetes
