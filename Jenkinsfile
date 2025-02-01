@@ -2,23 +2,24 @@ pipeline {
     agent any
 
     environment {
-        SONARQUBE = 'SonarQube'
+        SONARQUBE = 'sonarqube'
         NEXUS_REPO = 'nexus-repository'
         KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials' // Nom de ton credential Kubernetes dans Jenkins
         GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Récupérer le token de Jenkins
-
+        MAVEN_HOME = tool name: 'maven', type: 'Tool'  // Assurez-vous que Maven est installé et configuré dans Jenkins
     }
 
     stages {
         stage('recuperation projet') {
             steps {
-                    sh "git clone https://${GITHUB_CREDENTIALS}@github.com/nouradine04/spring-boot.git"
+                sh "git clone https://${GITHUB_CREDENTIALS}@github.com/nouradine04/spring-boot.git"
             }
         }
 
         stage('contruction projet') {
             steps {
-                sh './mvnw clean package -DskipTests'
+                // Utilisation de Maven installé et configuré dans Jenkins
+                sh "'${MAVEN_HOME}/bin/mvn' clean package -DskipTests"
             }
         }
 
@@ -26,14 +27,14 @@ pipeline {
             steps {
                 script {
                     // Lancer l'analyse SonarQube avec Maven
-                    sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=squ_0108ac01d1af24a0bb52762304c294de1811bbce'
+                    sh "'${MAVEN_HOME}/bin/mvn' sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}"
                 }
             }
         }
 
         stage('Test') {
             steps {
-                sh './mvnw test'
+                sh "'${MAVEN_HOME}/bin/mvn' test"
             }
         }
 
@@ -67,7 +68,6 @@ pipeline {
 
         stage('Monitoring avec Grafana') {
             steps {
-                // Exemple de vérification avec Grafana (tu peux adapter en fonction de ton monitoring)
                 echo 'Monitoring app in Grafana'
             }
         }
