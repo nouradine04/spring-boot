@@ -26,7 +26,7 @@ pipeline {
             }
             echo "Clonage du projet depuis Git..."
             // Clonage du projet
-            git 'https://github.com/nouradine04/spring-boot.git'
+            git branch: 'main', url: 'https://github.com/nouradine04/spring-boot.git'
         }
     }
 }
