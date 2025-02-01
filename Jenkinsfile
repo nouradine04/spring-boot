@@ -16,18 +16,20 @@ pipeline {
 
     stages {
         // Étape 1 : Récupération du projet
-        stage('Récupération du projet') {
-            steps {
-                script {
-                    if (!fileExists('spring-boot')) {
-                        git url: 'https://github.com/nouradine04/spring-boot.git', credentialsId: GITHUB_CREDENTIALS
-                    } else {
-                        echo "Le projet existe déjà."
-                    }
-                }
+       stage('Recuperation projet') {
+    steps {
+        script {
+            // Vérification de l'existence du dossier avant clonage
+            if (fileExists('spring-boot')) {
+                echo "Le projet existe déjà. Suppression du dossier..."
+                deleteDir()  // Supprimer le contenu du répertoire actuel
             }
+            echo "Clonage du projet depuis Git..."
+            // Clonage du projet
+            git 'https://github.com/nouradine04/spring-boot.git'
         }
-
+    }
+}
         // Étape 2 : Configuration de Maven
         stage('Configuration de Maven') {
             steps {
