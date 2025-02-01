@@ -1,0 +1,5 @@
+com/nouradine/crudspringboot/CrudSpringbootApplication.class
+com/nouradine/crudspringboot/models/Produit.class
+com/nouradine/crudspringboot/controller/ProduitController.class
+com/nouradine/crudspringboot/controller/HomeController.class
+com/nouradine/crudspringboot/service/ProduitService.class
