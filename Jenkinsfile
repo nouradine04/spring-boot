@@ -52,14 +52,17 @@ pipeline {
         }
 
         // Étape 3 : Construction du projet
-        stage('Construction du projet') {
-            steps {
-                script {
-                    // Exécuter Maven avec le fichier settings.xml personnalisé
-                    sh "'${MAVEN_HOME}/bin/mvn' -s ${env.WORKSPACE}/settings.xml clean package -DskipTests"
-                }
+       stage('Construction projet') {
+    steps {
+        script {
+            docker.image('maven:3.9.9-openjdk-11').inside {
+                // Exécution de la commande Maven dans le conteneur
+                sh 'mvn clean package -DskipTests'
             }
         }
+    }
+}
+
 
         // Étape 4 : Exécution des tests
         stage('Tests') {
