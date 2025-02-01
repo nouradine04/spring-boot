@@ -1,25 +1,30 @@
 pipeline {
     agent any
 
-    environment {
-        SONARQUBE = 'SonarQube'
-        NEXUS_REPO = 'nexus-repository'
-        KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials' // Nom de ton credential Kubernetes dans Jenkins
-        GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Récupérer le token de Jenkins
-
-    }
-
     stages {
-        stage('Recuperation projet') {
+        stage('Récupération du projet') {
             steps {
                 script {
-                    // Vérification de l'existence du dossier avant clonage
-                    if (!fileExists('spring-boot')) {
-                        git 'https://github.com/nouradine04/spring-boot.git'
-                    } else {
-                        echo "Le projet existe déjà."
+                    // Vérification si le répertoire existe et suppression si nécessaire
+                    if (fileExists('spring-boot')) {
+                        echo "Le répertoire 'spring-boot' existe déjà. Suppression en cours..."
+                        sh 'rm -rf spring-boot'
                     }
+                    // Clonage du projet depuis GitHub
+                    git 'https://github.com/nouradine04/spring-boot.git'
                 }
+            }
+        }
+
+        stage('Construction du projet') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+            }
+        }
+
+        stage('Exécution des tests') {
+            steps {
+                sh 'mvn test'
             }
         }
 
@@ -27,39 +32,28 @@ pipeline {
             steps {
                 script {
                     // Lancer l'analyse SonarQube avec Maven
-                    sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=squ_0108ac01d1af24a0bb52762304c294de1811bbce'
+                    sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}'
                 }
             }
         }
 
-        stage('Test') {
+        stage('Gestion de l\'Infrastructure avec Terraform') {
             steps {
-                sh './mvnw test'
+                sh 'terraform init'
+                sh 'terraform plan -out=tfplan'
+                sh 'terraform apply -auto-approve tfplan'
             }
         }
 
-        stage('recuperation Nexus') {
+        stage('Publication sur Nexus') {
             steps {
-                script {
-                    nexusPublisher nexusInstanceId: 'nexus-repository', nexusRepositoryId: 'maven-releases', file: 'target/*.jar'
-                }
+                nexusPublisher nexusInstanceId: 'nexus-repository', nexusRepositoryId: 'maven-releases', file: 'target/*.jar'
             }
         }
 
-        stage('Terraform') {
+        stage('Déploiement sur Kubernetes') {
             steps {
-                script {
-                    sh 'terraform init'
-                    sh 'terraform plan'
-                    sh 'terraform apply -auto-approve'
-                }
-            }
-        }
-
-        stage('Deploiement Kubernetes') {
-            steps {
-                script {
-                    // Utilisation de kubectl pour déployer sur Kubernetes
+                withCredentials([kubeconfig(credentialsId: KUBERNETES_CREDENTIALS)]) {
                     sh 'kubectl apply -f k8s/deployment.yaml'
                     sh 'kubectl apply -f k8s/service.yaml'
                 }
@@ -68,18 +62,17 @@ pipeline {
 
         stage('Monitoring avec Grafana') {
             steps {
-                // Exemple de vérification avec Grafana (tu peux adapter en fonction de ton monitoring)
-                echo 'Monitoring app in Grafana'
+                echo "Monitoring de l'application dans Grafana."
             }
         }
     }
 
     post {
         success {
-            echo 'Build and deploy successful!'
+            echo "Build et déploiement réussis !"
         }
         failure {
-            echo 'Build failed. Check logs.'
+            echo "Échec du build. Consultez les logs pour plus de détails."
         }
     }
 }
