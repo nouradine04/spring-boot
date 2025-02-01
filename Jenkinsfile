@@ -9,7 +9,7 @@ pipeline {
 
         // Autres variables d'environnement
         GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Token GitHub
-        SONARQUBE_TOKEN = credentials('SONARQUBE_TOKEN')  // Token SonarQube
+        SONARQUBE_TOKEN = credentials('sonarqube')  // Token SonarQube
         NEXUS_REPO = 'nexus-repository'  // ID de l'instance Nexus
         KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials'  // Credentials Kubernetes
     }
