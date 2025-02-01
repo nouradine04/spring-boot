@@ -1,32 +1,24 @@
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9.9-jdk-11' // Utilisation de l'image Docker officielle de Maven
-            args '-v /root/.m2:/root/.m2' // Montée du dossier .m2 pour le cache des dépendances
-        }
+    agent any
+
+    environment {
+        SONARQUBE = 'SonarQube'
+        NEXUS_REPO = 'nexus-repository'
+        KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials' // Nom de ton credential Kubernetes dans Jenkins
+        GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Récupérer le token de Jenkins
+
     }
 
     stages {
-        stage('Récupération du projet') {
+        stage('recuperation projet') {
             steps {
-                script {
-                    // Clonage du projet depuis GitHub
-                    git 'https://github.com/nouradine04/spring-boot.git'
-                }
+                    sh "git clone https://${GITHUB_CREDENTIALS}@github.com/nouradine04/spring-boot.git"
             }
         }
 
-        stage('Construction du projet') {
+        stage('contruction projet') {
             steps {
-                // Utilisation de Maven pour construire le projet
-                sh 'mvn clean package -DskipTests'
-            }
-        }
-
-        stage('Exécution des tests') {
-            steps {
-                // Lancer les tests avec Maven
-                sh 'mvn test'
+                sh './mvnw clean package -DskipTests'
             }
         }
 
@@ -34,55 +26,59 @@ pipeline {
             steps {
                 script {
                     // Lancer l'analyse SonarQube avec Maven
-                    sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}'
+                    sh 'mvn sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=squ_0108ac01d1af24a0bb52762304c294de1811bbce'
                 }
             }
         }
 
-        stage('Gestion de l\'Infrastructure avec Terraform') {
+        stage('Test') {
             steps {
-                script {
-                    // Initialisation, planification et application de Terraform
-                    sh 'terraform init'
-                    sh 'terraform plan -out=tfplan'
-                    sh 'terraform apply -auto-approve tfplan'
-                }
+                sh './mvnw test'
             }
         }
 
-        stage('Publication sur Nexus') {
+        stage('recuperation Nexus') {
             steps {
                 script {
-                    // Publication de l'artifact sur Nexus
                     nexusPublisher nexusInstanceId: 'nexus-repository', nexusRepositoryId: 'maven-releases', file: 'target/*.jar'
                 }
             }
         }
 
-        stage('Déploiement sur Kubernetes') {
+        stage('Terraform') {
             steps {
                 script {
-                    withCredentials([kubeconfig(credentialsId: KUBERNETES_CREDENTIALS)]) {
-                        sh 'kubectl apply -f k8s/deployment.yaml'
-                        sh 'kubectl apply -f k8s/service.yaml'
-                    }
+                    sh 'terraform init'
+                    sh 'terraform plan'
+                    sh 'terraform apply -auto-approve'
+                }
+            }
+        }
+
+        stage('Deploiement Kubernetes') {
+            steps {
+                script {
+                    // Utilisation de kubectl pour déployer sur Kubernetes
+                    sh 'kubectl apply -f k8s/deployment.yaml'
+                    sh 'kubectl apply -f k8s/service.yaml'
                 }
             }
         }
 
         stage('Monitoring avec Grafana') {
             steps {
-                echo 'Monitoring de l\'application dans Grafana.'
+                // Exemple de vérification avec Grafana (tu peux adapter en fonction de ton monitoring)
+                echo 'Monitoring app in Grafana'
             }
         }
     }
 
     post {
         success {
-            echo 'Build et déploiement réussis !'
+            echo 'Build and deploy successful!'
         }
         failure {
-            echo 'Échec du build. Consultez les logs pour plus de détails.'
+            echo 'Build failed. Check logs.'
         }
     }
 }
