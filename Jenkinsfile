@@ -10,13 +10,18 @@ pipeline {
         PATH = "${MAVEN_HOME}/bin:${PATH}" 
     }
 
-    stages {
-        stage('recuperation projet') {
-            steps {
-                sh "git clone https://${GITHUB_CREDENTIALS}@github.com/nouradine04/spring-boot.git"
+    stage('Recuperation projet') {
+    steps {
+        script {
+            // Supprimer le répertoire existant s'il existe
+            if (fileExists('spring-boot')) {
+                deleteDir() // Cela supprime tout le contenu du répertoire de travail actuel
             }
         }
-
+        // Cloner le projet depuis GitHub
+        git 'https://github.com/nouradine04/spring-boot.git'
+    }
+}
         stage('contruction projet') {
             steps {
                 // Utilisation de Maven installé et configuré dans Jenkins
