@@ -6,7 +6,8 @@ pipeline {
         NEXUS_REPO = 'nexus-repository'
         KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials' // Nom de ton credential Kubernetes dans Jenkins
         GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Récupérer le token de Jenkins
-        MAVEN_HOME = tool name: 'maven', type: 'Tool'  // Assurez-vous que Maven est installé et configuré dans Jenkins
+        MAVEN_HOME = '/Users/mac/Desktop/apache-maven-3.9.9'  // Le chemin vers Maven
+        PATH = "${MAVEN_HOME}/bin:${PATH}" 
     }
 
     stages {
