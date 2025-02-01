@@ -22,7 +22,9 @@ pipeline {
                         deleteDir() 
                     }
                     echo "Clonage du projet depuis GitHub..."
-                    git branch: 'main', url: 'https://github.com/nouradine04/spring-boot.git'
+                            git branch: 'main', 
+                            credentialsId: 'GITHUB_CREDENTIALS', 
+                             url: 'https://github.com/nouradine04/spring-boot.git'
                 }
             }
         }
