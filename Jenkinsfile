@@ -1,21 +1,13 @@
 pipeline {
-    // Utilisation d'un agent Docker avec l'image officielle Maven 3.9.9 et OpenJDK 11
-    agent {
-        docker {
-            image 'maven:3.9.9-openjdk-11'
-            // Optionnel : ajouter des arguments au conteneur si nécessaire (par ex., montage de volume)
-            // args '--privileged'
-        }
-    }
+    agent any
 
     environment {
-        // Maven est déjà installé dans l'image, donc on n'a pas besoin de définir MAVEN_HOME
+        // Variables d'environnement pour les credentials
+        GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')  // Token GitHub
+        SONARQUBE_TOKEN = credentials('sonarqube')         // Token SonarQube
+        NEXUS_REPO = 'nexus-repository'                      // ID de l'instance Nexus
+        KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials' // Credentials Kubernetes
         MAVEN_OPTS = '-Xmx1024m -XX:MaxPermSize=512m'
-        // Credentials (assure-toi que ces credentials sont bien créés dans Jenkins)
-        GITHUB_CREDENTIALS = credentials('GITHUB_TOKEN')
-        SONARQUBE_TOKEN = credentials('sonarqube')
-        NEXUS_REPO = 'nexus-repository'
-        KUBERNETES_CREDENTIALS = 'my-kubernetes-credentials'
     }
 
     stages {
@@ -23,10 +15,10 @@ pipeline {
         stage('Recuperation projet') {
             steps {
                 script {
-                    // Si le dossier "spring-boot" existe, on le supprime pour forcer un clone propre
+                    // Supprimer le workspace si le projet existe déjà
                     if (fileExists('spring-boot')) {
                         echo "Le projet existe déjà. Suppression du dossier..."
-                        deleteDir() // Supprime tout le contenu du workspace
+                        deleteDir() // Supprime le contenu du workspace
                     }
                     echo "Clonage du projet depuis GitHub..."
                     // Clonage depuis la branche main
@@ -34,81 +26,78 @@ pipeline {
                 }
             }
         }
-
-        // --- Étape 2 : Configuration de Maven ---
-        stage('Configuration de Maven') {
+        
+        // --- Étape 2 : Exécution de Maven dans Docker (Build, Tests, et SonarQube) ---
+        stage('Build et Tests') {
             steps {
                 script {
-                    // Vérification que Maven est accessible dans le conteneur Docker
-                    sh 'mvn -v'
-                    // Écriture d'un fichier settings.xml pour Nexus
-                    writeFile file: "${env.WORKSPACE}/settings.xml", text: """
-                    <settings>
-                        <mirrors>
-                            <mirror>
-                                <id>nexus</id>
-                                <url>http://localhost:8081/repository/maven-public/</url>
-                                <mirrorOf>*</mirrorOf>
-                            </mirror>
-                        </mirrors>
-                    </settings>
-                    """
+                    docker.image('maven:3.9.9-openjdk-11').inside {
+                        // Vérifier la version de Maven
+                        sh 'mvn -v'
+                        
+                        // Construction du projet
+                        sh 'mvn clean package -DskipTests'
+                        
+                        // Exécution des tests
+                        sh 'mvn test'
+                    }
                 }
             }
         }
-
-        // --- Étape 3 : Construction du projet ---
-        stage('Construction projet') {
-            steps {
-                // Utilisation de Maven pour construire le projet
-                sh 'mvn clean package -DskipTests'
-            }
-        }
-
-        // --- Étape 4 : Exécution des tests ---
-        stage('Tests') {
-            steps {
-                // Exécution des tests avec Maven en utilisant le settings.xml personnalisé
-                sh 'mvn -s ${WORKSPACE}/settings.xml test'
-            }
-        }
-
-        // --- Étape 5 : Analyse avec SonarQube ---
+        
+        // --- Étape 3 : Analyse avec SonarQube ---
         stage('Analyse avec SonarQube') {
             steps {
-                // Lancement de l'analyse SonarQube avec Maven
-                // On utilise directement la variable SONARQUBE_TOKEN (définie dans l'environnement)
-                sh "mvn -s ${WORKSPACE}/settings.xml sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}"
+                script {
+                    docker.image('maven:3.9.9-openjdk-11').inside {
+                        // Lancer l'analyse SonarQube avec Maven en utilisant le fichier settings.xml créé dynamiquement
+                        // On peut créer un settings.xml si nécessaire pour Nexus ou d'autres configurations
+                        writeFile file: "${env.WORKSPACE}/settings.xml", text: """
+                        <settings>
+                          <mirrors>
+                            <mirror>
+                              <id>nexus</id>
+                              <url>http://localhost:8081/repository/maven-public/</url>
+                              <mirrorOf>*</mirrorOf>
+                            </mirror>
+                          </mirrors>
+                        </settings>
+                        """
+                        sh "mvn -s ${env.WORKSPACE}/settings.xml sonar:sonar -Dsonar.host.url=http://localhost:9000 -Dsonar.login=${SONARQUBE_TOKEN}"
+                    }
+                }
             }
         }
-
-        // --- Étape 6 : Publication sur Nexus ---
+        
+        // --- Étape 4 : Publication sur Nexus ---
         stage('Publication sur Nexus') {
             steps {
                 script {
-                    // Publication de l'artefact sur Nexus
+                    // Publication de l'artefact sur Nexus via le plugin Nexus Publisher (ceci s'exécute sur l'agent Jenkins)
                     nexusPublisher nexusInstanceId: NEXUS_REPO, 
                                    nexusRepositoryId: 'maven-releases', 
                                    packages: [[$class: 'MavenPackage', mavenAssetList: [[classifier: '', extension: '', filePath: 'target/*.jar']]]]
                 }
             }
         }
-
-        // --- Étape 7 : Déploiement avec Terraform ---
+        
+        // --- Étape 5 : Déploiement avec Terraform ---
         stage('Terraform') {
             steps {
                 script {
+                    // Ces commandes s'exécutent sur l'agent Jenkins. Assure-toi que Terraform est installé sur l'agent ou dans l'image si nécessaire.
                     sh 'terraform init'
                     sh 'terraform plan'
                     sh 'terraform apply -auto-approve'
                 }
             }
         }
-
-        // --- Étape 8 : Déploiement sur Kubernetes ---
+        
+        // --- Étape 6 : Déploiement sur Kubernetes ---
         stage('Déploiement sur Kubernetes') {
             steps {
                 script {
+                    // Utilisation des credentials Kubernetes pour récupérer le fichier KUBECONFIG
                     withCredentials([file(credentialsId: KUBERNETES_CREDENTIALS, variable: 'KUBECONFIG')]) {
                         sh 'kubectl apply -f k8s/deployment.yaml'
                         sh 'kubectl apply -f k8s/service.yaml'
@@ -116,8 +105,8 @@ pipeline {
                 }
             }
         }
-
-        // --- Étape 9 : Monitoring avec Grafana ---
+        
+        // --- Étape 7 : Monitoring avec Grafana ---
         stage('Monitoring avec Grafana') {
             steps {
                 echo "Monitoring de l'application dans Grafana"
